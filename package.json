@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "displayName": "OSCQuery",
   "description": "Seamless OSCQuery integration in your project",
-  "unity": "2019.3",
-  "unityRelease": "1f1",
+  "unity": "2018.3",
+  "unityRelease": "0f1",
+  "repository": "github:benkuper/Unity-OSCQuery",
   "dependencies": {
   },
  "keywords": [
