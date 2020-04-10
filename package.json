@@ -1,0 +1,19 @@
+{
+  "name": "com.benkuper.OSCQuery",
+  "version": "1.0.0",
+  "displayName": "OSCQuery",
+  "description": "Seamless OSCQuery integration in your project",
+  "unity": "2019.1",
+  "unityRelease": "0",
+  "dependencies": {
+  },
+ "keywords": [
+    "osc",
+    "oscquery"
+  ],
+  "author": {
+    "name": "Ben Kuper",
+    "email": "benjamin@kuperberg.fr",
+    "url": "http://benjamin.kuperberg.fr"
+  }
+}
