@@ -12,7 +12,9 @@ A seamless integration of OSCQuery in Unity
 # Usage
 
 Just add the script "OSCQuery" wherever you want and setup the inport port you wish to use for communication.
+
 You can specify a specific object to be used as the root of the hierarchy to expose. Anything outside this object will not be shown in OSCQuery. Leave this field empty to expose all objects in the scene.
+
 When in play mode, you can check that it's working by going to http://127.0.0.1:9010/(or whatever port you chose). 
 You can watch the video to see a basic example.
 
