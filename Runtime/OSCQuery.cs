@@ -6,7 +6,7 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
-using UnityOSC;
+using OSCQuery.UnityOSC;
 
 namespace OSCQuery
 {

@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
 	public sealed class OSCMessage : OSCPacket
 	{

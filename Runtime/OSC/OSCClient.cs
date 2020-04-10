@@ -22,7 +22,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
 	/// <summary>
 	/// Dispatches OSC messages to the specified destination address and port.

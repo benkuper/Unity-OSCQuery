@@ -26,7 +26,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
     public class OSCReceiver
     {

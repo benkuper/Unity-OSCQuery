@@ -25,7 +25,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
 	/// <summary>
 	/// Models a OSC Packet over an OSC stream.

@@ -24,7 +24,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
 	/// <summary>
 	/// Models a Bundle of the OSC protocol.

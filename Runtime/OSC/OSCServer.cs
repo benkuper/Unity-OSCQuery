@@ -26,7 +26,7 @@ using System.Threading;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace UnityOSC
+namespace OSCQuery.UnityOSC
 {
     public delegate void PacketReceivedEventHandler(OSCServer sender, OSCPacket packet);
 
@@ -150,7 +150,7 @@ namespace UnityOSC
 			}
 			catch(Exception e)
 			{
-				Debug.LogError("OSCServer could not bind the port " + _localPort);
+				Debug.LogError("OSCServer could not bind the port " + _localPort+" : "+e.Message);
 			}
 		}
 		
@@ -196,7 +196,7 @@ namespace UnityOSC
 		/// </summary>
 		private void ReceivePool()
 		{
-			while( true)
+			while(true)
 			{
 
 				while(_udpClient != null && _udpClient.Available > 0) Receive();
@@ -204,9 +204,7 @@ namespace UnityOSC
 
 				Thread.Sleep(_sleepMilliseconds);
 			}
-			Debug.Log("End thread");
 		}
 		#endregion
 	}
 }
-
