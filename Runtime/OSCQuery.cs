@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Threading;
 using UnityEngine;
 using OSCQuery.UnityOSC;
+using Mono.Zeroconf.Providers.Bonjour;
+using SyntaxTree.VisualStudio.Unity.Bridge;
 
 namespace OSCQuery
 {
@@ -46,15 +48,19 @@ namespace OSCQuery
         public ObjectFilterMode objectFilterMode;
         public List<GameObject> filteredObjects;
 
-
         HttpListener listener;
         Thread serverThread;
+        JSONObject queryData;
+        bool dataIsReady;
 
         OSCReceiver receiver;
 
         Dictionary<string, CompInfo> compInfoMap;
 
-        JSONObject queryData;
+
+        RegisterService zeroconfService;
+        RegisterService oscService;
+
 
         void Awake()
         {
@@ -81,6 +87,20 @@ namespace OSCQuery
             {
                 receiver = new OSCReceiver();
                 receiver.Open(localPort);
+
+                oscService = new RegisterService();
+                oscService.Name = Project.Name();
+                oscService.RegType = "_osc._udp";
+                oscService.ReplyDomain = "local.";
+                oscService.UPort = (ushort)localPort;
+                oscService.Register();
+                
+                zeroconfService = new RegisterService();
+                zeroconfService.Name = Project.Name();
+                zeroconfService.RegType = "_oscjson._tcp";
+                zeroconfService.ReplyDomain = "local.";
+                zeroconfService.UPort = (ushort)localPort;
+                zeroconfService.Register();
             }
         }
 
@@ -89,11 +109,18 @@ namespace OSCQuery
             if (serverThread != null) serverThread.Abort();
             if (listener != null) listener.Stop();
             if (receiver != null) receiver.Close();
+            if (zeroconfService != null) zeroconfService.Dispose();
+            if (oscService != null) oscService.Dispose();
         }
 
         // Update is called once per frame
         void Update()
         {
+            if(!dataIsReady)
+            {
+                rebuildDataTree();
+                dataIsReady = true;
+            }
             ProcessIncomingMessages();
         }
 
@@ -102,10 +129,12 @@ namespace OSCQuery
             while (true)
             {
                 HttpListenerContext context = listener.GetContext();
-
-
                 HttpListenerResponse response = context.Response;
                 response.AddHeader("Content-Type", "application/json");
+
+                dataIsReady = false;
+                while (!dataIsReady) { /* wait until data is rebuild */ }
+
                 byte[] buffer = System.Text.Encoding.UTF8.GetBytes(queryData.ToString(true));
 
                 // Get a response stream and write the response to it.
@@ -173,7 +202,10 @@ namespace OSCQuery
                 foreach (FieldInfo info in fields)
                 {
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
-                    JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute);
+                   
+                    JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute, info.Name == "mainColor");
+
+                    
 
                     if (io != null)
                     {
@@ -197,8 +229,9 @@ namespace OSCQuery
                     if (info.Name == "name" || info.Name == "tag") continue;
 
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
-                    JSONObject io = getPropObject(info.PropertyType, info.GetValue(comp), rangeAttribute);
+                    JSONObject io = getPropObject(info.PropertyType, info.GetValue(comp), rangeAttribute, false);
 
+                  
                     if (io != null)
                     {
                         string ioName = SanitizeName(info.Name);
@@ -218,7 +251,7 @@ namespace OSCQuery
             return o;
         }
 
-        JSONObject getPropObject(Type type, object value, RangeAttribute range)
+        JSONObject getPropObject(Type type, object value, RangeAttribute range, bool debug)
         {
             JSONObject po = new JSONObject();
             po.SetField("ACCESS", 3);
@@ -234,6 +267,7 @@ namespace OSCQuery
 
             string typeString = type.ToString();
             string poType = "";
+
 
             switch (typeString)
             {
@@ -302,6 +336,7 @@ namespace OSCQuery
                 case "UnityEngine.Color":
                     {
                         Color c = (Color)value;
+                        Debug.Log("Color : " + c);
                         vo.Add(ColorUtility.ToHtmlStringRGBA(c));
                         poType = "r";
                     }
