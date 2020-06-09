@@ -16,7 +16,7 @@ namespace OSCQuery
     {
         public CompInfo(Component comp, FieldInfo info)
         {
-            isField = true;
+            infoType = InfoType.Field;
             fieldInfo = info;
             type = fieldInfo.FieldType;
             this.comp = comp;
@@ -24,17 +24,29 @@ namespace OSCQuery
 
         public CompInfo(Component comp, PropertyInfo info)
         {
-            isField = false;
+            infoType = InfoType.Property;
             propInfo = info;
             type = propInfo.PropertyType;
             this.comp = comp;
         }
 
+        public CompInfo(Component comp, MethodInfo info)
+        {
+            infoType = InfoType.Method;
+            methodInfo = info;
+            this.comp = comp;
+        }
+
+
         public Component comp;
-        public bool isField;
+
+        public enum InfoType {  Property, Field, Method };
+        public InfoType infoType;
+
         public Type type;
         public FieldInfo fieldInfo;
         public PropertyInfo propInfo;
+        public MethodInfo methodInfo;
     }
 
     public class OSCQuery : MonoBehaviour
@@ -69,16 +81,18 @@ namespace OSCQuery
                 Debug.LogError("Http server not supported !");
                 return;
             }
-
-            listener = new HttpListener();
-            listener.Prefixes.Add("http://*:" + localPort + "/");
-
-            rebuildDataTree();
+              
         }
 
         private void OnEnable()
         {
-            if (listener != null) listener.Start();
+            if (listener == null)
+            {
+                listener = new HttpListener();
+                listener.Prefixes.Add("http://*:" + localPort + "/");
+            }
+
+            listener.Start();
 
             serverThread = new Thread(RunThread);
             serverThread.Start();
@@ -94,7 +108,7 @@ namespace OSCQuery
                 oscService.ReplyDomain = "local.";
                 oscService.UPort = (ushort)localPort;
                 oscService.Register();
-                
+
                 zeroconfService = new RegisterService();
                 zeroconfService.Name = Project.Name();
                 zeroconfService.RegType = "_oscjson._tcp";
@@ -102,6 +116,8 @@ namespace OSCQuery
                 zeroconfService.UPort = (ushort)localPort;
                 zeroconfService.Register();
             }
+
+            rebuildDataTree();
         }
 
         private void OnDisable()
@@ -116,7 +132,7 @@ namespace OSCQuery
         // Update is called once per frame
         void Update()
         {
-            if(!dataIsReady)
+            if (!dataIsReady)
             {
                 rebuildDataTree();
                 dataIsReady = true;
@@ -202,10 +218,8 @@ namespace OSCQuery
                 foreach (FieldInfo info in fields)
                 {
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
-                   
-                    JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute, info.Name == "mainColor");
 
-                    
+                    JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute, info.Name == "mainColor");
 
                     if (io != null)
                     {
@@ -217,7 +231,7 @@ namespace OSCQuery
                     }
                 }
 
-                PropertyInfo[] props = comp.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.SetProperty) ;
+                PropertyInfo[] props = comp.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.SetProperty);
                 foreach (PropertyInfo info in props)
                 {
                     if (!info.CanWrite) continue;
@@ -231,7 +245,6 @@ namespace OSCQuery
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
                     JSONObject io = getPropObject(info.PropertyType, info.GetValue(comp), rangeAttribute, false);
 
-                  
                     if (io != null)
                     {
                         string ioName = SanitizeName(info.Name);
@@ -239,6 +252,45 @@ namespace OSCQuery
                         io.SetField("FULL_PATH", fullPath);
                         ccco.SetField(SanitizeName(info.Name), io);
                         compInfoMap.Add(fullPath, new CompInfo(comp, info));
+                    }
+                }
+
+                if (compType != "Transform") //Avoid methods of internal components
+                {
+
+                    MethodInfo[] methods = comp.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                    foreach (MethodInfo info in methods)
+                    {
+                        if (info.IsSpecialName && (info.Name.StartsWith("set_") || info.Name.StartsWith("get_"))) continue; //do not care for accessors
+
+                        ParameterInfo[] paramInfos = info.GetParameters();
+                        bool requiresArguments = false;
+                        foreach (ParameterInfo paramInfo in paramInfos)
+                        {
+                            if (!paramInfo.HasDefaultValue)
+                            {
+                                requiresArguments = true;
+                                break;
+                            }
+                        }
+
+                        if (!requiresArguments)
+                        {
+                            JSONObject mo = new JSONObject();
+                            mo.SetField("ACCESS", 3);
+                            String ioName = SanitizeName(info.Name);
+                            string fullPath = compAddress + "/" + ioName;
+                            mo.SetField("TYPE", "N");
+                            mo.SetField("FULL_PATH", fullPath);
+                            ccco.SetField(ioName, mo);
+                            compInfoMap.Add(fullPath, new CompInfo(comp, info));
+
+                            //Debug.Log("Added method : " + ioName);
+                        }
+                        else
+                        {
+                            //  Debug.Log("Method : " + info.Name + " requires arguments, not exposing");
+                        }
                     }
                 }
 
@@ -251,7 +303,7 @@ namespace OSCQuery
             return o;
         }
 
-        JSONObject getPropObject(Type type, object value, RangeAttribute range, bool debug)
+        JSONObject getPropObject(Type type, object value, RangeAttribute range = null, bool debug = false)
         {
             JSONObject po = new JSONObject();
             po.SetField("ACCESS", 3);
@@ -376,6 +428,7 @@ namespace OSCQuery
             return po;
         }
 
+
         string SanitizeName(string niceName)
         {
             return niceName.Replace(" ", "-").Replace("(", "").Replace(")", "");
@@ -392,7 +445,7 @@ namespace OSCQuery
 
         bool checkFilteredComp(Type type)
         {
-            
+
             return true;
         }
 
@@ -409,6 +462,19 @@ namespace OSCQuery
                 {
                     CompInfo info = compInfoMap[msg.Address];
                     object data = null;
+
+                    if(info == null)
+                    {
+                        Debug.LogWarning("Address not found : " + msg.Address);
+                        continue;
+                    }
+
+                    if(info.infoType == CompInfo.InfoType.Method)
+                    {
+                        int numParams = info.methodInfo.GetParameters().Length;
+                        info.methodInfo.Invoke(info.comp, Enumerable.Repeat(Type.Missing, numParams).ToArray());
+                        continue;
+                    }
 
                     string typeString = info.type.ToString();
 
@@ -443,7 +509,7 @@ namespace OSCQuery
                             break;
 
                         case "UnityEngine.Vector3":
-                            data = new Vector3((float)msg.Data[0], (float)msg.Data[1],(float)msg.Data[2]);
+                            data = new Vector3((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2]);
 
                             break;
 
@@ -478,14 +544,22 @@ namespace OSCQuery
                             break;
                     }
 
-                    if(data != null)
+                    if (data != null)
                     {
-                        if (info.isField) info.fieldInfo.SetValue(info.comp, data);
-                        else info.propInfo.SetValue(info.comp, data);
+                        switch (info.infoType)
+                        {
+                            case CompInfo.InfoType.Field:
+                                info.fieldInfo.SetValue(info.comp, data);
+                                break;
+
+                            case CompInfo.InfoType.Property:
+                                info.propInfo.SetValue(info.comp, data);
+                                break;
+                        }
                     }
                     else
                     {
-                        Debug.LogWarning("Type not handled : " + typeString+", address : "+msg.Address);
+                        Debug.LogWarning("Type not handled : " + typeString + ", address : " + msg.Address);
                     }
                 }
                 else
