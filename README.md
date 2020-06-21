@@ -19,6 +19,9 @@ When in play mode, you can check that it's working by going to http://127.0.0.1:
 You can watch the video to see a basic example.
 
 # Demo
+
+You can check out this example project using OSCQuery to control simple cubes : https://github.com/benkuper/Unity-OSCQuery-Example
+
 Click on the picture to see the youtube video
 [![Click to see the youtube video](http://i3.ytimg.com/vi/pLfj06am8gU/maxresdefault.jpg)](https://www.youtube.com/watch?v=pLfj06am8gU)
 
