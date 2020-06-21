@@ -9,6 +9,8 @@ using UnityEngine;
 using OSCQuery.UnityOSC;
 using Mono.Zeroconf.Providers.Bonjour;
 using SyntaxTree.VisualStudio.Unity.Bridge;
+using WebSocketSharp.Server;
+using UnityEditor.MemoryProfiler;
 
 namespace OSCQuery
 {
@@ -40,7 +42,7 @@ namespace OSCQuery
 
         public Component comp;
 
-        public enum InfoType {  Property, Field, Method };
+        public enum InfoType { Property, Field, Method };
         public InfoType infoType;
 
         public Type type;
@@ -60,8 +62,9 @@ namespace OSCQuery
         public ObjectFilterMode objectFilterMode;
         public List<GameObject> filteredObjects;
 
-        HttpListener listener;
-        Thread serverThread;
+
+        HttpServer httpServer;
+        
         JSONObject queryData;
         bool dataIsReady;
 
@@ -69,36 +72,26 @@ namespace OSCQuery
 
         Dictionary<string, CompInfo> compInfoMap;
 
-
         RegisterService zeroconfService;
         RegisterService oscService;
 
-
         void Awake()
         {
-            if (!HttpListener.IsSupported)
-            {
-                Debug.LogError("Http server not supported !");
-                return;
-            }
-              
         }
 
         private void OnEnable()
         {
-            if (listener == null)
-            {
-                listener = new HttpListener();
-                listener.Prefixes.Add("http://*:" + localPort + "/");
-            }
-
-            listener.Start();
-
-            serverThread = new Thread(RunThread);
-            serverThread.Start();
-
             if (Application.isPlaying)
             {
+                httpServer = new HttpServer(localPort);
+                httpServer.OnGet += handleHTTPRequest;
+
+                httpServer.Start();
+                if (httpServer.IsListening)  Debug.Log("OSCQuery Server started on port " + localPort);
+                else Debug.LogWarning("OSCQuery could not start on port " + localPort);
+
+                httpServer.AddWebSocketService("/", createWSQuery);
+
                 receiver = new OSCReceiver();
                 receiver.Open(localPort);
 
@@ -120,13 +113,13 @@ namespace OSCQuery
             rebuildDataTree();
         }
 
+
         private void OnDisable()
         {
-            if (serverThread != null) serverThread.Abort();
-            if (listener != null) listener.Stop();
-            if (receiver != null) receiver.Close();
-            if (zeroconfService != null) zeroconfService.Dispose();
-            if (oscService != null) oscService.Dispose();
+            httpServer?.Stop();
+            receiver?.Close();
+            zeroconfService?.Dispose();
+            oscService?.Dispose();
         }
 
         // Update is called once per frame
@@ -137,28 +130,41 @@ namespace OSCQuery
                 rebuildDataTree();
                 dataIsReady = true;
             }
+
             ProcessIncomingMessages();
         }
 
-        void RunThread()
+        private void handleHTTPRequest(object sender, HttpRequestEventArgs e)
         {
-            while (true)
-            {
-                HttpListenerContext context = listener.GetContext();
-                HttpListenerResponse response = context.Response;
-                response.AddHeader("Content-Type", "application/json");
+            var req = e.Request;
+            var response = e.Response;
+            
 
-                dataIsReady = false;
-                while (!dataIsReady) { /* wait until data is rebuild */ }
+            dataIsReady = false;
+            while (!dataIsReady) { /* wait until data is rebuild */ }
 
-                byte[] buffer = System.Text.Encoding.UTF8.GetBytes(queryData.ToString(true));
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(queryData.ToString(true));
+            response.ContentType = "application/json";
+            response.ContentLength64 = buffer.Length;
+            response.Close(buffer, true);
+        }
 
-                // Get a response stream and write the response to it.
-                response.ContentLength64 = buffer.Length;
-                System.IO.Stream output = response.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                output.Close();
-            }
+        WSQuery createWSQuery()
+        {
+            WSQuery q = new WSQuery();
+            q.messageReceived += wsMessageReceived;
+            q.dataReceived += wsDataReceived;
+            return q;
+        }
+
+        private void wsMessageReceived(string message)
+        {
+            Debug.Log("Message received " + message);
+        }
+
+        private void wsDataReceived(byte[] data)
+        {
+            Debug.Log("Data received " + data.Length + " bytes");
         }
 
         void rebuildDataTree()
@@ -388,7 +394,6 @@ namespace OSCQuery
                 case "UnityEngine.Color":
                     {
                         Color c = (Color)value;
-                        Debug.Log("Color : " + c);
                         vo.Add(ColorUtility.ToHtmlStringRGBA(c));
                         poType = "r";
                     }
@@ -434,8 +439,6 @@ namespace OSCQuery
             return niceName.Replace(" ", "-").Replace("(", "").Replace(")", "");
         }
 
-
-
         bool checkFilteredObject(GameObject go)
         {
             return objectFilterMode == ObjectFilterMode.All
@@ -445,7 +448,6 @@ namespace OSCQuery
 
         bool checkFilteredComp(Type type)
         {
-
             return true;
         }
 
@@ -463,13 +465,13 @@ namespace OSCQuery
                     CompInfo info = compInfoMap[msg.Address];
                     object data = null;
 
-                    if(info == null)
+                    if (info == null)
                     {
                         Debug.LogWarning("Address not found : " + msg.Address);
                         continue;
                     }
 
-                    if(info.infoType == CompInfo.InfoType.Method)
+                    if (info.infoType == CompInfo.InfoType.Method)
                     {
                         int numParams = info.methodInfo.GetParameters().Length;
                         info.methodInfo.Invoke(info.comp, Enumerable.Repeat(Type.Missing, numParams).ToArray());
