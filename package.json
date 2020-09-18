@@ -1,13 +1,14 @@
 {
-    "author": "Ben Kuper",
-    "dependencies": { },
-    "description": "Seamless OSCQuery integration in Unity.",
-    "displayName": "OSCQuery",
-    "keywords": [ "unity" ],
-    "license": "GPL v3",
-    "name": "com.benkuper.oscquery",
-    "repository": "github:benkper/Unity-OSCQuery",
-    "unity": "2018.3",
-    "unityRelease": "0f1",
-    "version": "1.0.2"
+  "author": "Ben Kuper",
+  "description": "Seamless OSCQuery integration in Unity.",
+  "displayName": "OSCQuery",
+  "keywords": [
+    "unity"
+  ],
+  "license": "GPL v3",
+  "name": "com.benkuper.oscquery",
+  "repository": "github:benkper/Unity-OSCQuery",
+  "unity": "2018.3",
+  "unityRelease": "0f1",
+  "version": "1.0.3"
 }
