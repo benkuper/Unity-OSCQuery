@@ -8,9 +8,7 @@ using System.Threading;
 using UnityEngine;
 using OSCQuery.UnityOSC;
 using Mono.Zeroconf.Providers.Bonjour;
-using SyntaxTree.VisualStudio.Unity.Bridge;
 using WebSocketSharp.Server;
-using UnityEditor.MemoryProfiler;
 
 namespace OSCQuery
 {
@@ -55,6 +53,7 @@ namespace OSCQuery
     {
         [Header("Network settings")]
         public int localPort = 9010;
+        public string zeroconfName = "Unity-OSCQuery";
 
         [Header("Setup & Filters")]
         public GameObject rootObject;
@@ -96,14 +95,14 @@ namespace OSCQuery
                 receiver.Open(localPort);
 
                 oscService = new RegisterService();
-                oscService.Name = Project.Name();
+                oscService.Name = zeroconfName;
                 oscService.RegType = "_osc._udp";
                 oscService.ReplyDomain = "local.";
                 oscService.UPort = (ushort)localPort;
                 oscService.Register();
 
                 zeroconfService = new RegisterService();
-                zeroconfService.Name = Project.Name();
+                zeroconfService.Name = zeroconfName;
                 zeroconfService.RegType = "_oscjson._tcp";
                 zeroconfService.ReplyDomain = "local.";
                 zeroconfService.UPort = (ushort)localPort;

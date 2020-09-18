@@ -6,6 +6,8 @@ using UnityEditor;
 using UnityEngine.Networking;
 #endif
 
+#if UNITY_EDITOR
+
 /*
 Copyright (c) 2010-2019 Matt Schoen
 
@@ -113,3 +115,5 @@ namespace OSCQuery
 	}
 
 }
+
+#endif
