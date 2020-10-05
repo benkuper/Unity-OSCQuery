@@ -520,7 +520,8 @@ namespace OSCQuery
 
                         case "UnityEngine.Color":
                             {
-                                data = (Color)msg.Data[0];
+                                if(msg.Data.Count == 1) data = (Color)msg.Data[0];
+                                else if(msg.Data.Count >= 3) data = new Color((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2], msg.Data.Count > 3 ? (float)msg.Data[2] : 1.0f);
                             }
                             break;
 
