@@ -336,7 +336,7 @@ namespace OSCQuery
 
                 case "System.Boolean":
                     vo.Add((bool)value);
-                    poType = "b";
+                    poType = "T";
                     break;
 
                 case "System.Int32":
