@@ -5,11 +5,22 @@ using WebSocketSharp.Server;
 
 public class WSQuery : WebSocketBehavior
 {
-    public delegate void MessageEvent(string message);
+    public delegate void MessageEvent(WSQuery query,string message);
     public MessageEvent messageReceived;
 
-    public delegate void DataEvent(byte[] data);
+    public delegate void DataEvent(WSQuery query, byte[] data);
     public DataEvent dataReceived;
+
+
+    public void sendMessage(string message)
+    {
+        Send(message);
+    }
+    
+    public void sendData(byte[] data)
+    {
+        Send(data);
+    }
 
     protected override void OnOpen()
     {
@@ -29,7 +40,8 @@ public class WSQuery : WebSocketBehavior
     protected override void OnMessage(MessageEventArgs e)
     {
         var name = Context.QueryString["name"];
-        if (e.IsText) messageReceived?.Invoke(e.Data);
-        else if (e.IsBinary) dataReceived?.Invoke(e.RawData);
+        if (e.IsText) messageReceived?.Invoke(this, e.Data);
+        else if (e.IsBinary) dataReceived?.Invoke(this, e.RawData);
     }
+
 }

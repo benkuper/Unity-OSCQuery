@@ -207,7 +207,7 @@ namespace OSCQuery.UnityOSC
 					break;
 
 				default:
-					throw new Exception("Unsupported data type.");
+					throw new Exception("Unsupported data type : "+type.Name);
 			}
 
 			_typeTag += typeTag;

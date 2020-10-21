@@ -49,27 +49,36 @@ namespace OSCQuery
         public MethodInfo methodInfo;
     }
 
+    [ExecuteInEditMode]
     public class OSCQuery : MonoBehaviour
     {
         [Header("Network settings")]
         public int localPort = 9010;
-        public string zeroconfName = "Unity-OSCQuery";
+        public string serverName = "Unity-OSCQuery";
 
         [Header("Setup & Filters")]
         public GameObject rootObject;
-        public enum ObjectFilterMode { All, Include, Exclude }
-        public ObjectFilterMode objectFilterMode;
+        public enum FilterMode { All, Include, Exclude }
+        public FilterMode objectFilterMode = FilterMode.Exclude;
         public List<GameObject> filteredObjects;
-
+        public FilterMode componentFilterMode = FilterMode.Exclude;
+        public List<String> filteredComponentNames;
+        public bool excludeInternalUnityParams;
+        String[] internalUnityParamsNames = { "name", "tag", "useGUILayout", "runInEditMode", "enabled", "hideFlags" };
+        String[] internalUnityTransformNames = { "localEulerAngles", "right", "up", "forward", "hasChanged", "hierarchyCapacity" };
+        String[] acceptedParamTypes = { "System.String", "System.Char", "System.Boolean", "System.Int32", "System.Int64", "System.Int16", "System.UInt16", "System.Byte", "System.SByte", "System.Double", "System.Single", "UnityEngine.Vector2", "UnityEngine.Vector3", "UnityEngine.Quaternion", "UnityEngine.Color" };
 
         HttpServer httpServer;
-        
+
         JSONObject queryData;
         bool dataIsReady;
 
         OSCReceiver receiver;
 
         Dictionary<string, CompInfo> compInfoMap;
+
+        Dictionary<string, WSQuery> propQueryMap;
+        bool propQueryMapLock;
 
         RegisterService zeroconfService;
         RegisterService oscService;
@@ -80,13 +89,23 @@ namespace OSCQuery
 
         private void OnEnable()
         {
+            if (propQueryMap == null) propQueryMap = new Dictionary<string, WSQuery>();
+
+            if (filteredComponentNames.Count == 0)
+            {
+                filteredComponentNames.Add("MeshRenderer");
+                filteredComponentNames.Add("MeshFilter");
+                filteredComponentNames.Add("BoxCollider");
+                filteredComponentNames.Add("MeshCollider");
+            }
+
             if (Application.isPlaying)
             {
                 httpServer = new HttpServer(localPort);
                 httpServer.OnGet += handleHTTPRequest;
 
                 httpServer.Start();
-                if (httpServer.IsListening)  Debug.Log("OSCQuery Server started on port " + localPort);
+                if (httpServer.IsListening) Debug.Log("OSCQuery Server started on port " + localPort);
                 else Debug.LogWarning("OSCQuery could not start on port " + localPort);
 
                 httpServer.AddWebSocketService("/", createWSQuery);
@@ -95,14 +114,14 @@ namespace OSCQuery
                 receiver.Open(localPort);
 
                 oscService = new RegisterService();
-                oscService.Name = zeroconfName;
+                oscService.Name = serverName;
                 oscService.RegType = "_osc._udp";
                 oscService.ReplyDomain = "local.";
                 oscService.UPort = (ushort)localPort;
                 oscService.Register();
 
                 zeroconfService = new RegisterService();
-                zeroconfService.Name = zeroconfName;
+                zeroconfService.Name = serverName;
                 zeroconfService.RegType = "_oscjson._tcp";
                 zeroconfService.ReplyDomain = "local.";
                 zeroconfService.UPort = (ushort)localPort;
@@ -124,28 +143,67 @@ namespace OSCQuery
         // Update is called once per frame
         void Update()
         {
-            if (!dataIsReady)
+            if (Application.isPlaying)
             {
-                rebuildDataTree();
-                dataIsReady = true;
+                if (!dataIsReady)
+                {
+                    rebuildDataTree();
+                    dataIsReady = true;
+                }
+
+                ProcessIncomingMessages();
             }
 
-            ProcessIncomingMessages();
+            //while(propQueryMapLock)
+            //{
+                //wait
+            //}
+            propQueryMapLock = true;
+            foreach (KeyValuePair<string, WSQuery> aqm in propQueryMap)
+            {
+                sendFeedback(aqm.Key, aqm.Value);
+            }
+            propQueryMapLock = false;
+
         }
 
         private void handleHTTPRequest(object sender, HttpRequestEventArgs e)
         {
             var req = e.Request;
             var response = e.Response;
-            
 
-            dataIsReady = false;
-            while (!dataIsReady) { /* wait until data is rebuild */ }
+            JSONObject responseData = new JSONObject();
 
-            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(queryData.ToString(true));
+            if (req.RawUrl.Contains("HOST_INFO"))
+            {
+                JSONObject extensions = new JSONObject();
+                extensions.SetField("ACCESS", true);
+                extensions.SetField("CLIPMODE", false);
+                extensions.SetField("CRITICAL", false);
+                extensions.SetField("RANGE", true);
+                extensions.SetField("TAGS", false);
+                extensions.SetField("TYPE", true);
+                extensions.SetField("UNIT", false);
+                extensions.SetField("VALUE", true);
+                extensions.SetField("LISTEN", true);
+
+                responseData.SetField("EXTENSIONS", extensions);
+                responseData.SetField("NAME", serverName);
+                responseData.SetField("OSC_PORT", localPort);
+                responseData.SetField("OSC_TRANSPORT", "UDP");
+            }
+            else
+            {
+                dataIsReady = false;
+                while (!dataIsReady) { /* wait until data is rebuild */ }
+                responseData = queryData;
+            }
+
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseData.ToString());
             response.ContentType = "application/json";
             response.ContentLength64 = buffer.Length;
             response.Close(buffer, true);
+
         }
 
         WSQuery createWSQuery()
@@ -156,12 +214,37 @@ namespace OSCQuery
             return q;
         }
 
-        private void wsMessageReceived(string message)
+        private void wsMessageReceived(WSQuery query, string message)
         {
             Debug.Log("Message received " + message);
+            JSONObject o = new JSONObject(message);
+            if (o.IsObject)
+            {
+                String command = o["COMMAND"].str;
+                String data = o["DATA"].str;
+                Debug.Log("Received Command " + command + " > " + data);
+
+                while (propQueryMapLock)
+                {
+                    //wait
+                }
+                propQueryMapLock = true;
+
+                if (command == "LISTEN")
+                {
+                    propQueryMap.Add(data, query);
+                }
+                else if (command == "IGNORE")
+                {
+                    propQueryMap.Remove(data);
+                }
+
+                propQueryMapLock = false;
+            }
+
         }
 
-        private void wsDataReceived(byte[] data)
+        private void wsDataReceived(WSQuery query, byte[] data)
         {
             Debug.Log("Data received " + data.Length + " bytes");
         }
@@ -206,10 +289,11 @@ namespace OSCQuery
 
             foreach (Component comp in comps)
             {
-                if (!checkFilteredComp(comp.GetType())) continue;
-
                 int dotIndex = comp.GetType().ToString().LastIndexOf(".");
                 string compType = comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
+
+                if (!checkFilteredComp(compType)) continue;
+
 
                 string compAddress = baseAddress + "/" + compType;
 
@@ -241,11 +325,18 @@ namespace OSCQuery
                 {
                     if (!info.CanWrite) continue;
                     string propType = info.PropertyType.ToString();
-                    if (propType == "UnityEngine.Component") continue; //fix deprecation error
-                    if (propType == "UnityEngine.GameObject") continue; //fix deprecation error
-                    if (propType == "UnityEngine.Matrix4x4") continue; //fix deprecation error
-                    if (propType == "UnityEngine.Transform") continue; //fix deprecation error
-                    if (info.Name == "name" || info.Name == "tag") continue;
+                    if (!acceptedParamTypes.Contains(propType)) continue;//
+                    //if (propType == "UnityEngine.Component") continue; //fix deprecation error
+                    //if (propType == "UnityEngine.GameObject") continue; //fix deprecation error
+                    //if (propType == "UnityEngine.Matrix4x4") continue; //fix deprecation error
+                    //if (propType == "UnityEngine.Transform") continue; //fix deprecation error
+                    //if (propType == "UnityEngine.Mesh") continue; //fix deprecation error
+                    if (excludeInternalUnityParams)
+                    {
+                        if (internalUnityParamsNames.Contains(info.Name)) continue;
+                        if (compType == "Transform" && internalUnityTransformNames.Contains(info.Name)) continue;
+                    }
+
 
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
                     JSONObject io = getPropObject(info.PropertyType, info.GetValue(comp), rangeAttribute, false);
@@ -440,14 +531,16 @@ namespace OSCQuery
 
         bool checkFilteredObject(GameObject go)
         {
-            return objectFilterMode == ObjectFilterMode.All
-                || (objectFilterMode == ObjectFilterMode.Include && filteredObjects.Contains(go))
-                || (objectFilterMode == ObjectFilterMode.Exclude && !filteredObjects.Contains(go));
+            return objectFilterMode == FilterMode.All
+                || (objectFilterMode == FilterMode.Include && filteredObjects.Contains(go))
+                || (objectFilterMode == FilterMode.Exclude && !filteredObjects.Contains(go));
         }
 
-        bool checkFilteredComp(Type type)
+        bool checkFilteredComp(String typeString)
         {
-            return true;
+            return componentFilterMode == FilterMode.All
+              || (componentFilterMode == FilterMode.Include && filteredComponentNames.Contains(typeString))
+              || (componentFilterMode == FilterMode.Exclude && !filteredComponentNames.Contains(typeString));
         }
 
         void ProcessIncomingMessages()
@@ -520,8 +613,8 @@ namespace OSCQuery
 
                         case "UnityEngine.Color":
                             {
-                                if(msg.Data.Count == 1) data = (Color)msg.Data[0];
-                                else if(msg.Data.Count >= 3) data = new Color((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2], msg.Data.Count > 3 ? (float)msg.Data[2] : 1.0f);
+                                if (msg.Data.Count == 1) data = (Color)msg.Data[0];
+                                else if (msg.Data.Count >= 3) data = new Color((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2], msg.Data.Count > 3 ? (float)msg.Data[2] : 1.0f);
                             }
                             break;
 
@@ -568,6 +661,77 @@ namespace OSCQuery
                 {
                     Debug.LogWarning("Property not found for address : " + msg.Address);
                 }
+            }
+        }
+
+
+
+        void sendFeedback(string address, WSQuery query)
+        {
+            CompInfo info = compInfoMap[address];
+
+            object data = null;
+            if (info.propInfo != null) data = info.propInfo.GetValue(info.comp);
+            else if (info.fieldInfo != null) data = info.fieldInfo.GetValue(info.comp);
+
+            if (data != null)
+            {
+                OSCMessage m = new OSCMessage(address);
+
+                string dataType = data.GetType().Name;
+                switch (dataType)
+                {
+                    case "Boolean":
+                        {
+                            bool val = (bool)data;
+                            m.Append(val ? 1 : 0);
+                        }
+                        break;
+
+                    case "Vector2":
+                        {
+                            Vector2 v = (Vector2)data;
+                            m.Append(v.x);
+                            m.Append(v.y);
+                        }
+                        break;
+
+                    case "Vector3":
+                        {
+                            Vector3 v = (Vector3)data;
+                            m.Append(v.x);
+                            m.Append(v.y);
+                            m.Append(v.z);
+                        }
+                        break;
+
+                    case "Color":
+                        {
+                            Color color = (Color)data;
+                            m.Append(color.r);
+                            m.Append(color.g);
+                            m.Append(color.b);
+                            m.Append(color.a);
+                        }
+                        break;
+
+                    case "Quaternion":
+                        {
+                            Vector3 v = ((Quaternion)data).eulerAngles;
+                            m.Append(v.x);
+                            m.Append(v.y);
+                            m.Append(v.z);
+                        }
+                        break;
+
+                    default:
+                        if(info.type.IsEnum) m.Append(data.ToString());
+                        else m.Append(data);
+                        break;
+                }
+
+                Debug.Log("Send data here ! "+ m.BinaryData.Length+" bytes");
+                query.sendData(m.BinaryData);
             }
         }
     }
