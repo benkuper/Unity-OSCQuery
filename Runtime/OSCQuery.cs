@@ -77,7 +77,8 @@ namespace OSCQuery
 
         Dictionary<string, CompInfo> compInfoMap;
 
-        Dictionary<string, WSQuery> propQueryMap;
+        Dictionary<WSQuery, List<string>> propQueryMap;
+        Dictionary<string, object> propQueryPreviousValues;
         bool propQueryMapLock;
 
         RegisterService zeroconfService;
@@ -89,7 +90,8 @@ namespace OSCQuery
 
         private void OnEnable()
         {
-            if (propQueryMap == null) propQueryMap = new Dictionary<string, WSQuery>();
+            if (propQueryMap == null) propQueryMap = new Dictionary<WSQuery, List<string>>();
+            if (propQueryPreviousValues == null) propQueryPreviousValues = new Dictionary<string, object>();
 
             if (filteredComponentNames.Count == 0)
             {
@@ -156,12 +158,13 @@ namespace OSCQuery
 
             //while(propQueryMapLock)
             //{
-                //wait
+            //wait
             //}
             propQueryMapLock = true;
-            foreach (KeyValuePair<string, WSQuery> aqm in propQueryMap)
+            foreach (KeyValuePair<WSQuery, List<string>> qprops in propQueryMap)
             {
-                sendFeedback(aqm.Key, aqm.Value);
+                Debug.Log("Feedback for query " + qprops.Key.ID);
+                foreach (string s in qprops.Value) sendFeedback(s, qprops.Key);
             }
             propQueryMapLock = false;
 
@@ -211,7 +214,26 @@ namespace OSCQuery
             WSQuery q = new WSQuery();
             q.messageReceived += wsMessageReceived;
             q.dataReceived += wsDataReceived;
+            q.socketOpened += wsSocketOpened;
+            q.socketClosed += wsSocketClosed;
+            q.socketError += wsSocketError;
             return q;
+        }
+
+        private void wsSocketOpened(WSQuery query)
+        {
+            propQueryMap.Add(query, new List<string>());
+        }
+
+        private void wsSocketClosed(WSQuery query)
+        {
+            propQueryMap.Remove(query);
+
+        }
+
+        private void wsSocketError(WSQuery query)
+        {
+            propQueryMap.Remove(query);
         }
 
         private void wsMessageReceived(WSQuery query, string message)
@@ -232,11 +254,11 @@ namespace OSCQuery
 
                 if (command == "LISTEN")
                 {
-                    propQueryMap.Add(data, query);
+                    propQueryMap[query].Add(data);
                 }
                 else if (command == "IGNORE")
                 {
-                    propQueryMap.Remove(data);
+                    propQueryMap[query].Remove(data);
                 }
 
                 propQueryMapLock = false;
@@ -665,74 +687,83 @@ namespace OSCQuery
         }
 
 
-
         void sendFeedback(string address, WSQuery query)
         {
             CompInfo info = compInfoMap[address];
+
+            object oldData = null;
+            propQueryPreviousValues.TryGetValue(address, out oldData);
 
             object data = null;
             if (info.propInfo != null) data = info.propInfo.GetValue(info.comp);
             else if (info.fieldInfo != null) data = info.fieldInfo.GetValue(info.comp);
 
-            if (data != null)
+            if (data == null) return;
+
+            propQueryPreviousValues[address] = data;
+
+            OSCMessage m = new OSCMessage(address);
+
+            string dataType = data.GetType().Name;
+            switch (dataType)
             {
-                OSCMessage m = new OSCMessage(address);
+                case "Boolean":
+                    {
+                        bool val = (bool)data;
+                        if (oldData != null && val == (bool)oldData) return;
+                        m.Append(val ? 1 : 0);
+                    }
+                    break;
 
-                string dataType = data.GetType().Name;
-                switch (dataType)
-                {
-                    case "Boolean":
-                        {
-                            bool val = (bool)data;
-                            m.Append(val ? 1 : 0);
-                        }
-                        break;
+                case "Vector2":
+                    {
+                        Vector2 v = (Vector2)data;
+                        if (oldData != null && v == (Vector2)oldData) return;
+                        m.Append(v.x);
+                        m.Append(v.y);
+                    }
+                    break;
 
-                    case "Vector2":
-                        {
-                            Vector2 v = (Vector2)data;
-                            m.Append(v.x);
-                            m.Append(v.y);
-                        }
-                        break;
+                case "Vector3":
+                    {
+                        Vector3 v = (Vector3)data;
+                        if (oldData != null && v == (Vector3)oldData) return;
+                        m.Append(v.x);
+                        m.Append(v.y);
+                        m.Append(v.z);
+                    }
+                    break;
 
-                    case "Vector3":
-                        {
-                            Vector3 v = (Vector3)data;
-                            m.Append(v.x);
-                            m.Append(v.y);
-                            m.Append(v.z);
-                        }
-                        break;
+                case "Color":
+                    {
+                        Color color = (Color)data;
+                        if (oldData != null && color == (Color)oldData) return;
+                        m.Append(color.r);
+                        m.Append(color.g);
+                        m.Append(color.b);
+                        m.Append(color.a);
+                    }
+                    break;
 
-                    case "Color":
-                        {
-                            Color color = (Color)data;
-                            m.Append(color.r);
-                            m.Append(color.g);
-                            m.Append(color.b);
-                            m.Append(color.a);
-                        }
-                        break;
+                case "Quaternion":
+                    {
+                        Vector3 v = ((Quaternion)data).eulerAngles;
+                        if (oldData != null && v == ((Quaternion)oldData).eulerAngles) return;
 
-                    case "Quaternion":
-                        {
-                            Vector3 v = ((Quaternion)data).eulerAngles;
-                            m.Append(v.x);
-                            m.Append(v.y);
-                            m.Append(v.z);
-                        }
-                        break;
+                        m.Append(v.x);
+                        m.Append(v.y);
+                        m.Append(v.z);
+                    }
+                    break;
 
-                    default:
-                        if(info.type.IsEnum) m.Append(data.ToString());
-                        else m.Append(data);
-                        break;
-                }
-
-                Debug.Log("Send data here ! "+ m.BinaryData.Length+" bytes");
-                query.sendData(m.BinaryData);
+                default:
+                    if (oldData != null && data.ToString() == oldData.ToString()) return;
+                    if (info.type.IsEnum) m.Append(data.ToString());
+                    else m.Append(data);
+                    break;
             }
+
+            query.sendData(m.BinaryData);
         }
     }
 }
