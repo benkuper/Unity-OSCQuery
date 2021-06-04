@@ -9,6 +9,7 @@ using UnityEngine;
 using OSCQuery.UnityOSC;
 using Mono.Zeroconf.Providers.Bonjour;
 using WebSocketSharp.Server;
+using UnityEngine.VFX;
 
 namespace OSCQuery
 {
@@ -37,16 +38,36 @@ namespace OSCQuery
             this.comp = comp;
         }
 
+        public CompInfo(VisualEffect comp, string prop, Type type)
+        {
+            infoType = InfoType.VFX;
+            genericInfo = new GenericInfo(type, prop);
+            this.type = type;
+            this.comp = comp;
+        }
 
         public Component comp;
 
-        public enum InfoType { Property, Field, Method };
+        public enum InfoType { Property, Field, Method, VFX, Material };
         public InfoType infoType;
 
         public Type type;
         public FieldInfo fieldInfo;
         public PropertyInfo propInfo;
         public MethodInfo methodInfo;
+        
+       public struct GenericInfo
+        {
+            public GenericInfo(Type type, string name)
+            {
+                this.type = type;
+                this.name = name;
+            }
+            public Type type;
+            public string name;
+        };
+
+        public GenericInfo genericInfo;
     }
 
     [ExecuteInEditMode]
@@ -163,7 +184,6 @@ namespace OSCQuery
             propQueryMapLock = true;
             foreach (KeyValuePair<WSQuery, List<string>> qprops in propQueryMap)
             {
-                Debug.Log("Feedback for query " + qprops.Key.ID);
                 foreach (string s in qprops.Value) sendFeedback(s, qprops.Key);
             }
             propQueryMapLock = false;
@@ -316,7 +336,6 @@ namespace OSCQuery
 
                 if (!checkFilteredComp(compType)) continue;
 
-
                 string compAddress = baseAddress + "/" + compType;
 
                 JSONObject cco = new JSONObject();
@@ -373,7 +392,30 @@ namespace OSCQuery
                     }
                 }
 
-                if (compType != "Transform") //Avoid methods of internal components
+               // Debug.Log("Comp type : " + compType);
+
+                if (compType == "VisualEffect")
+                {
+                    VisualEffect vfx = comp as VisualEffect;
+                    List<VFXExposedProperty> vfxProps = new List<VFXExposedProperty>();
+                    vfx.visualEffectAsset.GetExposedProperties(vfxProps);
+                    foreach (var p in vfxProps)
+                    {
+                        //Debug.Log("Here " + p.name+" / "+p.type.ToString());
+                        JSONObject io = getPropObject(p.type, getVFXPropValue(vfx, p.type, p.name));
+                       
+                        if(io != null)
+                        {
+                            string sName = SanitizeName(p.name);
+                            string fullPath = compAddress + "/" + sName;
+                            io.SetField("FULL_PATH", fullPath);
+                            ccco.SetField(SanitizeName(sName), io);
+                            compInfoMap.Add(fullPath, new CompInfo(comp as VisualEffect, p.name, p.type));
+                        }
+                    }
+
+                }
+                else if (compType != "Transform") //Avoid methods of internal components
                 {
 
                     MethodInfo[] methods = comp.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
@@ -511,6 +553,13 @@ namespace OSCQuery
                     }
                     break;
 
+                case "UnityEngine.Vector4":
+                    {
+                        Color c = (Color)(Vector4)value;
+                        vo.Add(ColorUtility.ToHtmlStringRGBA(c));
+                        poType = "r";
+                    }
+                    break;
 
                 default:
                     if (type.IsEnum)
@@ -574,6 +623,7 @@ namespace OSCQuery
                 string args = "";
                 msg.Data.ForEach((arg) => args += arg.ToString() + ", ");
 
+                Debug.Log("info received : " + msg.Address);
                 if (compInfoMap.ContainsKey(msg.Address))
                 {
                     CompInfo info = compInfoMap[msg.Address];
@@ -585,6 +635,7 @@ namespace OSCQuery
                         continue;
                     }
 
+                   
                     if (info.infoType == CompInfo.InfoType.Method)
                     {
                         int numParams = info.methodInfo.GetParameters().Length;
@@ -592,6 +643,7 @@ namespace OSCQuery
                         continue;
                     }
 
+                    Debug.Log(info.genericInfo + "/" + info.type);
                     string typeString = info.type.ToString();
 
                     switch (typeString)
@@ -634,6 +686,7 @@ namespace OSCQuery
                             break;
 
                         case "UnityEngine.Color":
+                        case "UnityEngine.Vector4":
                             {
                                 if (msg.Data.Count == 1) data = (Color)msg.Data[0];
                                 else if (msg.Data.Count >= 3) data = new Color((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2], msg.Data.Count > 3 ? (float)msg.Data[2] : 1.0f);
@@ -671,6 +724,22 @@ namespace OSCQuery
 
                             case CompInfo.InfoType.Property:
                                 info.propInfo.SetValue(info.comp, data);
+                                break;
+
+                            case CompInfo.InfoType.VFX:
+                                {
+                                    int dotIndex = info.comp.GetType().ToString().LastIndexOf(".");
+                                    string compType = info.comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
+                                    setVFXPropValue((info.comp as VisualEffect), info.genericInfo.type, info.genericInfo.name, data);
+                                }
+                                break;
+
+                            case CompInfo.InfoType.Material:
+                               /* {
+                                    int dotIndex = info.comp.GetType().ToString().LastIndexOf(".");
+                                    string compType = info.comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
+                                    setMaterialPropValue((info.comp as VisualEffect), info.genericInfo.type, info.genericInfo.name, data);
+                                }*/
                                 break;
                         }
                     }
@@ -735,6 +804,7 @@ namespace OSCQuery
                     break;
 
                 case "Color":
+                case "Vector4":
                     {
                         Color color = (Color)data;
                         if (oldData != null && color == (Color)oldData) return;
@@ -764,6 +834,97 @@ namespace OSCQuery
             }
 
             query.sendData(m.BinaryData);
+        }
+
+
+        //VFX Helpers
+
+        object getVFXPropValue(VisualEffect vfx, Type type, string id)
+        {
+            switch (type.ToString())
+            {
+                case "System.String":
+                case "System.Char":
+                    break;
+
+                case "System.Boolean":
+                    return vfx.GetBool(id);
+
+                case "System.Int32":
+                case "System.Int64":
+                case "System.UInt32":
+                case "System.Int16":
+                case "System.UInt16":
+                case "System.Byte":
+                case "System.SByte":
+                    return vfx.GetInt(id);
+
+                case "System.Double":
+                case "System.Single":
+                    return vfx.GetFloat(id);
+
+                case "UnityEngine.Vector2":
+                    return vfx.GetVector2(id);
+
+                case "UnityEngine.Vector3":
+                    return vfx.GetVector3(id);
+
+                case "UnityEngine.Quaternion":
+                    break;
+
+                case "UnityEngine.Color":
+                case "UnityEngine.Vector4":
+                    return vfx.GetVector4(id);
+            }
+
+            Debug.LogWarning("VFX prop type not handled : " + type.ToString());
+            return null;
+        }
+
+        void setVFXPropValue(VisualEffect vfx, Type type, string id, object value)
+        {
+            switch (type.ToString())
+            {
+                case "System.String":
+                case "System.Char":
+                    break;
+
+                case "System.Boolean":
+                    vfx.SetBool(id, (bool)value);
+                    break;
+
+                case "System.Int32":
+                case "System.Int64":
+                case "System.UInt32":
+                case "System.Int16":
+                case "System.UInt16":
+                case "System.Byte":
+                case "System.SByte":
+                    vfx.SetInt(id,(int)value);
+                    break;
+
+                case "System.Double":
+                case "System.Single":
+                    vfx.SetFloat(id,(float)value);
+                    break;
+
+                case "UnityEngine.Vector2":
+                    vfx.SetVector2(id,(Vector2)value);
+                    break;
+
+                case "UnityEngine.Vector3":
+                    vfx.SetVector3(id,(Vector3)value);
+                    break;
+
+                case "UnityEngine.Quaternion":
+                    break;
+
+                case "UnityEngine.Color":
+                case "UnityEngine.Vector4":
+                    vfx.SetVector4(id, (Color)value);
+                    break;
+            }
+
         }
     }
 }
