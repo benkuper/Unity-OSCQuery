@@ -334,6 +334,7 @@ namespace OSCQuery
                 int dotIndex = comp.GetType().ToString().LastIndexOf(".");
                 string compType = comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
 
+                //Debug.Log(go.name+" > Comp : " + compType);
                 if (!checkFilteredComp(compType)) continue;
 
                 string compAddress = baseAddress + "/" + compType;
@@ -348,6 +349,8 @@ namespace OSCQuery
                 foreach (FieldInfo info in fields)
                 {
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
+
+                    Debug.Log(go.name+" > Info field type : " +info.FieldType.ToString() +" /" +compType);
 
                     JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute, info.Name == "mainColor");
 
@@ -417,7 +420,6 @@ namespace OSCQuery
                 }
                 else if (compType != "Transform") //Avoid methods of internal components
                 {
-
                     MethodInfo[] methods = comp.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
                     foreach (MethodInfo info in methods)
                     {
@@ -561,6 +563,21 @@ namespace OSCQuery
                     }
                     break;
 
+                    /*
+                case "UnityEngine.Material":
+                    {
+                        Material m = (Material)value;
+                        if(m != null)
+                        {
+                            int numProps = m.shader.GetPropertyCount();
+                            for(int i=0;i<numProps;i++)
+                            {
+                                m.shader.GetPropertyAttributes(i);
+                            }
+                        }
+                    }
+                    break;
+                    */
                 default:
                     if (type.IsEnum)
                     {
@@ -591,6 +608,7 @@ namespace OSCQuery
             po.SetField("VALUE", vo);
             po.SetField("TYPE", poType);
             po.SetField("RANGE", ro);
+
             return po;
         }
 
@@ -766,6 +784,10 @@ namespace OSCQuery
             object data = null;
             if (info.propInfo != null) data = info.propInfo.GetValue(info.comp);
             else if (info.fieldInfo != null) data = info.fieldInfo.GetValue(info.comp);
+            else if (info.infoType == CompInfo.InfoType.VFX)
+            {
+                data = getVFXPropValue(info.comp as VisualEffect, info.genericInfo.type, info.genericInfo.name);
+            }
 
             if (data == null) return;
 
@@ -806,8 +828,9 @@ namespace OSCQuery
                 case "Color":
                 case "Vector4":
                     {
-                        Color color = (Color)data;
-                        if (oldData != null && color == (Color)oldData) return;
+                        Color color = dataType == "Color" ? (Color)data : (Color)(Vector4)data;
+                        Color oldColor = dataType == "Color" ? (Color)oldData : (Color)(Vector4)oldData;
+                        if (oldData != null && color == (Color)oldColor) return;
                         m.Append(color.r);
                         m.Append(color.g);
                         m.Append(color.b);
