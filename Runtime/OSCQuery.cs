@@ -55,8 +55,8 @@ namespace OSCQuery
         public FieldInfo fieldInfo;
         public PropertyInfo propInfo;
         public MethodInfo methodInfo;
-        
-       public struct GenericInfo
+
+        public struct GenericInfo
         {
             public GenericInfo(Type type, string name)
             {
@@ -350,7 +350,7 @@ namespace OSCQuery
                 {
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
 
-                    Debug.Log(go.name+" > Info field type : " +info.FieldType.ToString() +" /" +compType);
+                    //Debug.Log(go.name+" > Info field type : " +info.FieldType.ToString() +" /" +compType);
 
                     JSONObject io = getPropObject(info.FieldType, info.GetValue(comp), rangeAttribute, info.Name == "mainColor");
 
@@ -395,7 +395,7 @@ namespace OSCQuery
                     }
                 }
 
-               // Debug.Log("Comp type : " + compType);
+                // Debug.Log("Comp type : " + compType);
 
                 if (compType == "VisualEffect")
                 {
@@ -406,8 +406,8 @@ namespace OSCQuery
                     {
                         //Debug.Log("Here " + p.name+" / "+p.type.ToString());
                         JSONObject io = getPropObject(p.type, getVFXPropValue(vfx, p.type, p.name));
-                       
-                        if(io != null)
+
+                        if (io != null)
                         {
                             string sName = SanitizeName(p.name);
                             string fullPath = compAddress + "/" + sName;
@@ -563,21 +563,21 @@ namespace OSCQuery
                     }
                     break;
 
-                    /*
-                case "UnityEngine.Material":
+                /*
+            case "UnityEngine.Material":
+                {
+                    Material m = (Material)value;
+                    if(m != null)
                     {
-                        Material m = (Material)value;
-                        if(m != null)
+                        int numProps = m.shader.GetPropertyCount();
+                        for(int i=0;i<numProps;i++)
                         {
-                            int numProps = m.shader.GetPropertyCount();
-                            for(int i=0;i<numProps;i++)
-                            {
-                                m.shader.GetPropertyAttributes(i);
-                            }
+                            m.shader.GetPropertyAttributes(i);
                         }
                     }
-                    break;
-                    */
+                }
+                break;
+                */
                 default:
                     if (type.IsEnum)
                     {
@@ -641,7 +641,7 @@ namespace OSCQuery
                 string args = "";
                 msg.Data.ForEach((arg) => args += arg.ToString() + ", ");
 
-                Debug.Log("info received : " + msg.Address);
+                //Debug.Log("info received : " + msg.Address);
                 if (compInfoMap.ContainsKey(msg.Address))
                 {
                     CompInfo info = compInfoMap[msg.Address];
@@ -649,11 +649,11 @@ namespace OSCQuery
 
                     if (info == null)
                     {
-                        Debug.LogWarning("Address not found : " + msg.Address);
+                        //Debug.LogWarning("Address not found : " + msg.Address);
                         continue;
                     }
 
-                   
+
                     if (info.infoType == CompInfo.InfoType.Method)
                     {
                         int numParams = info.methodInfo.GetParameters().Length;
@@ -661,7 +661,6 @@ namespace OSCQuery
                         continue;
                     }
 
-                    Debug.Log(info.genericInfo + "/" + info.type);
                     string typeString = info.type.ToString();
 
                     switch (typeString)
@@ -687,27 +686,27 @@ namespace OSCQuery
 
                         case "System.Double":
                         case "System.Single":
-                            data = (float)msg.Data[0];
+                            data = getFloatArg(msg.Data[0]);
                             break;
 
                         case "UnityEngine.Vector2":
-                            data = new Vector2((float)msg.Data[0], (float)msg.Data[1]);
+                            data = new Vector2(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[0]));
                             break;
 
                         case "UnityEngine.Vector3":
-                            data = new Vector3((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2]);
+                            data = new Vector3(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]), getFloatArg(msg.Data[2]));
 
                             break;
 
                         case "UnityEngine.Quaternion":
-                            data = Quaternion.Euler(new Vector3((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2]));
+                            data = Quaternion.Euler(new Vector3(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]), getFloatArg(msg.Data[2])));
                             break;
 
                         case "UnityEngine.Color":
                         case "UnityEngine.Vector4":
                             {
                                 if (msg.Data.Count == 1) data = (Color)msg.Data[0];
-                                else if (msg.Data.Count >= 3) data = new Color((float)msg.Data[0], (float)msg.Data[1], (float)msg.Data[2], msg.Data.Count > 3 ? (float)msg.Data[2] : 1.0f);
+                                else if (msg.Data.Count >= 3) data = new Color(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]), getFloatArg(msg.Data[2]), msg.Data.Count > 3 ? getFloatArg(msg.Data[2] ): 1.0f);
                             }
                             break;
 
@@ -724,7 +723,7 @@ namespace OSCQuery
                                     if (field.Name.Equals("value__")) continue;
                                     if (field.Name == msg.Data[0].ToString())
                                     {
-                                        Debug.Log("Found enum " + field.Name + " > " + field.GetRawConstantValue());
+                                        //Debug.Log("Found enum " + field.Name + " > " + field.GetRawConstantValue());
                                         data = field.GetRawConstantValue();
                                     }
                                 }
@@ -753,11 +752,11 @@ namespace OSCQuery
                                 break;
 
                             case CompInfo.InfoType.Material:
-                               /* {
-                                    int dotIndex = info.comp.GetType().ToString().LastIndexOf(".");
-                                    string compType = info.comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
-                                    setMaterialPropValue((info.comp as VisualEffect), info.genericInfo.type, info.genericInfo.name, data);
-                                }*/
+                                /* {
+                                     int dotIndex = info.comp.GetType().ToString().LastIndexOf(".");
+                                     string compType = info.comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
+                                     setMaterialPropValue((info.comp as VisualEffect), info.genericInfo.type, info.genericInfo.name, data);
+                                 }*/
                                 break;
                         }
                     }
@@ -923,20 +922,20 @@ namespace OSCQuery
                 case "System.UInt16":
                 case "System.Byte":
                 case "System.SByte":
-                    vfx.SetInt(id,(int)value);
+                    vfx.SetInt(id, (int)value);
                     break;
 
                 case "System.Double":
                 case "System.Single":
-                    vfx.SetFloat(id,(float)value);
+                    vfx.SetFloat(id, (float)value);
                     break;
 
                 case "UnityEngine.Vector2":
-                    vfx.SetVector2(id,(Vector2)value);
+                    vfx.SetVector2(id, (Vector2)value);
                     break;
 
                 case "UnityEngine.Vector3":
-                    vfx.SetVector3(id,(Vector3)value);
+                    vfx.SetVector3(id, (Vector3)value);
                     break;
 
                 case "UnityEngine.Quaternion":
@@ -948,6 +947,12 @@ namespace OSCQuery
                     break;
             }
 
+        }
+
+        // Helper
+        float getFloatArg(object data)
+        {
+            return (data is int)? (float)(int)data : (float)data;
         }
     }
 }

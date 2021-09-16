@@ -81,7 +81,7 @@ namespace OSCQuery
 #if UNITY_2017_1_OR_NEWER
 				var test = new UnityWebRequest(URL);
 				test.SendWebRequest();
-				while (!test.isDone && !test.isNetworkError) ;
+				while (!test.isDone && !(test.result == UnityWebRequest.Result.ConnectionError)) ;
 #else
 			var test = new WWW(URL);
  			while (!test.isDone) ;
