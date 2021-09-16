@@ -3,15 +3,35 @@ A seamless integration of OSCQuery in Unity
 
 # Installation
 
-- In Unity Editor, open Windows > Package Manager
-- Click the "+" icon in the top-left corner of the window, and choose "Add package from git URL..."
-- Paste the url of this repo (include .git) : https://github.com/benkuper/Unity-OSCQuery.git
-- That's it, you're set !
+## From Unity Editor
 
+- In Unity Editor, open the Project Settings > Package Manager
+- Click on the '+' icon to add a Scoped Registry. Then set it up like this :
+  - Name : Ben Kuper
+  - URL : https://package.openupm.com
+  - Scope : com.benkuper
+
+- When opening Windows > Package Manager, select "My Registry" in the list menu and you should be now able to install OSCQuery under the "Ben Kuper" group.
+
+## From manifest.json
+
+In your Unity project folder, open Packages/manifest.json and edit (or add it not already there) the scopedRegistry section. You can put that anywhere in the JSON file at the root level of the tree structure. More info on the manifest.json file here : https://docs.unity3d.com/2019.3/Documentation/Manual/upm-manifestPrj.html
+
+```
+"scopedRegistries": [
+    {
+      "name": "Ben Kuper",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.benkuper"
+      ]
+    }
+  ]
+```
 
 # Usage
 
-Just add the script "OSCQuery" wherever you want and setup the inport port you wish to use for communication.
+Just add the script "OSCQuery" wherever you want and setup the input port you wish to use for communication.
 
 You can specify a specific object to be used as the root of the hierarchy to expose. Anything outside this object will not be shown in OSCQuery. Leave this field empty to expose all objects in the scene.
 
