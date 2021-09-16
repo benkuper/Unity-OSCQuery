@@ -690,7 +690,7 @@ namespace OSCQuery
                             break;
 
                         case "UnityEngine.Vector2":
-                            data = new Vector2(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[0]));
+                            data = new Vector2(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]));
                             break;
 
                         case "UnityEngine.Vector3":
