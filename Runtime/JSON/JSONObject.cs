@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Globalization;
 /*
 Copyright (c) 2010-2019 Matt Schoen
 
@@ -952,7 +953,12 @@ namespace OSCQuery
 					builder.Append(NaN);
 #endif
 						else
-							builder.Append(n.ToString());
+						{
+							NumberFormatInfo nfi = new NumberFormatInfo();
+							nfi.NumberDecimalSeparator = ".";
+							builder.Append(i.ToString(nfi));
+							//builder.Append(n.ToString());
+						}
 					}
 					break;
 				case Type.OBJECT:
@@ -1087,6 +1093,7 @@ namespace OSCQuery
 				case Type.NUMBER:
 					if (useInt)
 					{
+
 						builder.Append(i.ToString());
 					}
 					else
@@ -1107,7 +1114,12 @@ namespace OSCQuery
 					builder.Append(NaN);
 #endif
 						else
-							builder.Append(n.ToString());
+                        {
+							NumberFormatInfo nfi = new NumberFormatInfo();
+							nfi.NumberDecimalSeparator = ".";
+							builder.Append(n.ToString(nfi));
+
+						}
 					}
 					break;
 				case Type.OBJECT:
