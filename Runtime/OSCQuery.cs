@@ -475,8 +475,8 @@ namespace OSCQuery
             JSONObject ro0 = new JSONObject();
             if (range != null)
             {
-                ro0.Add(range.min);
-                ro0.Add(range.max);
+                ro0.SetField("MIN", range.min);
+                ro0.SetField("MAX", range.max);
             }
 
             string typeString = type.ToString();
