@@ -10,6 +10,7 @@ using OSCQuery.UnityOSC;
 using Mono.Zeroconf.Providers.Bonjour;
 using WebSocketSharp.Server;
 using UnityEngine.VFX;
+using UnityEngine.Rendering;
 
 namespace OSCQuery
 {
@@ -295,11 +296,12 @@ namespace OSCQuery
         {
             compInfoMap = new Dictionary<string, CompInfo>();
 
-            if (rootObject != null) queryData = getObjectData(rootObject, "");
+            if (rootObject != null) queryData = getObjectData(rootObject, ""); 
             else
             {
                 queryData = new JSONObject("root");
                 queryData.SetField("ACCESS", 0);
+                if (!UnityEngine.SceneManagement.SceneManager.GetActiveScene().isLoaded) return;
                 GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
 
                 JSONObject co = new JSONObject();
@@ -394,9 +396,7 @@ namespace OSCQuery
                         compInfoMap.Add(fullPath, new CompInfo(comp, info));
                     }
                 }
-
-                // Debug.Log("Comp type : " + compType);
-
+                
                 if (compType == "VisualEffect")
                 {
                     VisualEffect vfx = comp as VisualEffect;
@@ -416,6 +416,11 @@ namespace OSCQuery
                             compInfoMap.Add(fullPath, new CompInfo(comp as VisualEffect, p.name, p.type));
                         }
                     }
+
+                }
+                else if (compType == "Volume")
+                {
+                   //Volume v = comp as Volume; 
 
                 }
                 else if (compType != "Transform") //Avoid methods of internal components
@@ -620,6 +625,8 @@ namespace OSCQuery
 
         bool checkFilteredObject(GameObject go)
         {
+            if (go == null) return false;
+
             return objectFilterMode == FilterMode.All
                 || (objectFilterMode == FilterMode.Include && filteredObjects.Contains(go))
                 || (objectFilterMode == FilterMode.Exclude && !filteredObjects.Contains(go));
