@@ -641,7 +641,7 @@ namespace OSCQuery
 
         void ProcessIncomingMessages()
         {
-            while (receiver.hasWaitingMessages())
+            while (receiver != null && receiver.hasWaitingMessages())
             {
                 OSCMessage msg = receiver.getNextMessage();
 
@@ -782,6 +782,12 @@ namespace OSCQuery
 
         void sendFeedback(string address, WSQuery query)
         {
+            if (!compInfoMap.ContainsKey(address))
+            {
+                Debug.Log("Address " + address + " is not registered, skipping feedback");
+                return;
+            }
+
             CompInfo info = compInfoMap[address];
 
             object oldData = null;
@@ -797,7 +803,8 @@ namespace OSCQuery
 
             if (data == null) return;
 
-            propQueryPreviousValues[address] = data;
+            if (!propQueryPreviousValues.ContainsKey(address)) propQueryPreviousValues.Add(address, data);
+            else propQueryPreviousValues[address] = data;
 
             OSCMessage m = new OSCMessage(address);
 
