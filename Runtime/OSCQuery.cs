@@ -106,6 +106,9 @@ namespace OSCQuery
         RegisterService zeroconfService;
         RegisterService oscService;
 
+        public delegate void OnMessageReceivedEvent(OSCMessage message);
+        public event OnMessageReceivedEvent onMessageReceived;
+
         void Awake()
         {
         }
@@ -296,7 +299,7 @@ namespace OSCQuery
         {
             compInfoMap = new Dictionary<string, CompInfo>();
 
-            if (rootObject != null) queryData = getObjectData(rootObject, ""); 
+            if (rootObject != null) queryData = getObjectData(rootObject, "");
             else
             {
                 queryData = new JSONObject("root");
@@ -396,7 +399,7 @@ namespace OSCQuery
                         compInfoMap.Add(fullPath, new CompInfo(comp, info));
                     }
                 }
-                
+
                 if (compType == "VisualEffect")
                 {
                     VisualEffect vfx = comp as VisualEffect;
@@ -420,7 +423,7 @@ namespace OSCQuery
                 }
                 else if (compType == "Volume")
                 {
-                   //Volume v = comp as Volume; 
+                    //Volume v = comp as Volume; 
 
                 }
                 else if (compType != "Transform") //Avoid methods of internal components
@@ -657,6 +660,7 @@ namespace OSCQuery
                     if (info == null)
                     {
                         //Debug.LogWarning("Address not found : " + msg.Address);
+                        onMessageReceived?.Invoke(msg);
                         continue;
                     }
 
@@ -713,7 +717,7 @@ namespace OSCQuery
                         case "UnityEngine.Vector4":
                             {
                                 if (msg.Data.Count == 1) data = (Color)msg.Data[0];
-                                else if (msg.Data.Count >= 3) data = new Color(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]), getFloatArg(msg.Data[2]), msg.Data.Count > 3 ? getFloatArg(msg.Data[2] ): 1.0f);
+                                else if (msg.Data.Count >= 3) data = new Color(getFloatArg(msg.Data[0]), getFloatArg(msg.Data[1]), getFloatArg(msg.Data[2]), msg.Data.Count > 3 ? getFloatArg(msg.Data[2]) : 1.0f);
                             }
                             break;
 
@@ -775,6 +779,7 @@ namespace OSCQuery
                 else
                 {
                     Debug.LogWarning("Property not found for address : " + msg.Address);
+                    onMessageReceived?.Invoke(msg);
                 }
             }
         }
@@ -966,7 +971,7 @@ namespace OSCQuery
         // Helper
         float getFloatArg(object data)
         {
-            return (data is int)? (float)(int)data : (float)data;
+            return (data is int) ? (float)(int)data : (float)data;
         }
     }
 }
