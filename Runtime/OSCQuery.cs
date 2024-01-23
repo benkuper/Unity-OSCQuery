@@ -12,8 +12,16 @@ using WebSocketSharp.Server;
 using UnityEngine.VFX;
 using UnityEngine.Rendering;
 
+
+
 namespace OSCQuery
 {
+    [AttributeUsage(AttributeTargets.Class)]
+    public class DoNotExpose : Attribute { }
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public class DoNotExposeChildren : Attribute { }
+
     public class CompInfo
     {
         public CompInfo(Component comp, FieldInfo info)
@@ -312,7 +320,7 @@ namespace OSCQuery
                 {
                     if (!checkFilteredObject(go)) continue;
                     string goName = SanitizeName(go.name);
-                    co.SetField(goName, getObjectData(go, "/" + goName));
+                    if (!co.HasField(goName)) co.SetField(goName, getObjectData(go, "/" + goName));
                 }
 
                 queryData.SetField("CONTENTS", co);
@@ -324,13 +332,9 @@ namespace OSCQuery
             JSONObject o = new JSONObject();
             o.SetField("ACCESS", 0);
             JSONObject co = new JSONObject();
-            for (int i = 0; i < go.transform.childCount; i++)
-            {
-                GameObject cgo = go.transform.GetChild(i).gameObject;
-                if (!checkFilteredObject(cgo)) continue;
-                string cgoName = SanitizeName(cgo.name);
-                co.SetField(cgoName, getObjectData(cgo, baseAddress + "/" + cgoName));
-            }
+
+            bool doNotExposeChildren = false;
+           
 
             Component[] comps = go.GetComponents<Component>();
 
@@ -341,6 +345,9 @@ namespace OSCQuery
 
                 //Debug.Log(go.name+" > Comp : " + compType);
                 if (!checkFilteredComp(compType)) continue;
+
+                DoNotExposeChildren nochildrenAttribute = comp.GetType().GetCustomAttribute<DoNotExposeChildren>();
+                if (nochildrenAttribute != null) doNotExposeChildren = true;
 
                 string compAddress = baseAddress + "/" + compType;
 
@@ -432,6 +439,7 @@ namespace OSCQuery
                     foreach (MethodInfo info in methods)
                     {
                         if (info.IsSpecialName && (info.Name.StartsWith("set_") || info.Name.StartsWith("get_"))) continue; //do not care for accessors
+                        Debug.Log(go.name + " method : " + info);
 
                         ParameterInfo[] paramInfos = info.GetParameters();
                         bool requiresArguments = false;
@@ -468,7 +476,20 @@ namespace OSCQuery
                 co.SetField(SanitizeName(compType), cco);
             }
 
+            if (!doNotExposeChildren)
+            {
+                for (int i = 0; i < go.transform.childCount; i++)
+                {
+                    GameObject cgo = go.transform.GetChild(i).gameObject;
+                    if (!checkFilteredObject(cgo)) continue;
+                    string cgoName = SanitizeName(cgo.name);
+                    co.SetField(cgoName, getObjectData(cgo, baseAddress + "/" + cgoName));
+                }
+            }
+
             o.SetField("CONTENTS", co);
+
+
 
             return o;
         }
