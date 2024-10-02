@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -370,7 +370,9 @@ namespace OSCQuery
                     {
                         string ioName = SanitizeName(info.Name);
                         string fullPath = compAddress + "/" + ioName;
+
                         io.SetField("FULL_PATH", fullPath);
+                        io.SetField("DESCRIPTION", getNiceName(info.Name));
                         ccco.SetField(ioName, io);
                         compInfoMap.Add(fullPath, new CompInfo(comp, info));
                     }
@@ -402,6 +404,7 @@ namespace OSCQuery
                         string ioName = SanitizeName(info.Name);
                         string fullPath = compAddress + "/" + ioName;
                         io.SetField("FULL_PATH", fullPath);
+                        io.SetField("DESCRIPTION", getNiceName(info.Name));
                         ccco.SetField(SanitizeName(info.Name), io);
                         compInfoMap.Add(fullPath, new CompInfo(comp, info));
                     }
@@ -421,6 +424,7 @@ namespace OSCQuery
                         {
                             string sName = SanitizeName(p.name);
                             string fullPath = compAddress + "/" + sName;
+                            io.SetField("DESCRIPTION", getNiceName(p.name));
                             io.SetField("FULL_PATH", fullPath);
                             ccco.SetField(SanitizeName(sName), io);
                             compInfoMap.Add(fullPath, new CompInfo(comp as VisualEffect, p.name, p.type));
@@ -460,6 +464,7 @@ namespace OSCQuery
                             string fullPath = compAddress + "/" + ioName;
                             mo.SetField("TYPE", "N");
                             mo.SetField("FULL_PATH", fullPath);
+                            mo.SetField("DESCRIPTION", getNiceName(info.Name));
                             ccco.SetField(ioName, mo);
                             compInfoMap.Add(fullPath, new CompInfo(comp, info));
 
@@ -868,8 +873,12 @@ namespace OSCQuery
                 case "Vector4":
                     {
                         Color color = dataType == "Color" ? (Color)data : (Color)(Vector4)data;
-                        Color oldColor = dataType == "Color" ? (Color)oldData : (Color)(Vector4)oldData;
-                        if (oldData != null && color == (Color)oldColor) return;
+                        
+                        if (oldData != null)
+                        {
+                            Color oldColor = dataType == "Color" ? (Color)oldData : (Color)(Vector4)oldData;
+                            if(color == oldColor) return;
+                        }
                         m.Append(color.r);
                         m.Append(color.g);
                         m.Append(color.b);
@@ -993,6 +1002,31 @@ namespace OSCQuery
         float getFloatArg(object data)
         {
             return (data is int) ? (float)(int)data : (float)data;
+        }
+
+        string getNiceName(string name)
+        {
+            string niceName = "";
+            for (int i = 0; i < name.Length; i++)
+            {
+                if (i == 0)
+                {
+                    niceName += char.ToUpper(name[i]);
+                }
+                else if (char.IsUpper(name[i]))
+                {
+                    if (char.IsLower(name[i - 1]))
+                    {
+                        niceName += " ";
+                    }
+                    niceName += name[i];
+                }
+                else
+                {
+                    niceName += name[i];
+                }
+            }
+            return niceName;
         }
     }
 }
