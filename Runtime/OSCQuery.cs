@@ -271,7 +271,7 @@ namespace OSCQuery
 
         private void wsMessageReceived(WSQuery query, string message)
         {
-            Debug.Log("Message received " + message);
+            //Debug.Log("Message received " + message);
             JSONObject o = new JSONObject(message);
             if (o.IsObject)
             {
@@ -505,6 +505,8 @@ namespace OSCQuery
             }
 
             o.SetField("CONTENTS", co);
+            o.SetField("DESCRIPTION", getNiceName(go.name));
+
 
 
 
@@ -661,7 +663,7 @@ namespace OSCQuery
 
         string SanitizeName(string niceName)
         {
-            return niceName.Replace(" ", "-").Replace("(", "").Replace(")", "");
+            return niceName.Replace(" ", "_").Replace("(", "").Replace(")", "");
         }
 
         bool checkFilteredObject(GameObject go)
