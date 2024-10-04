@@ -93,6 +93,8 @@ namespace OSCQuery
         public FilterMode componentFilterMode = FilterMode.Exclude;
         public List<String> filteredComponentNames;
         public bool excludeInternalUnityParams;
+        public bool excludeThisObject = true;
+
         String[] internalUnityParamsNames = { "name", "tag", "useGUILayout", "runInEditMode", "enabled", "hideFlags" };
         String[] internalUnityTransformNames = { "localEulerAngles", "right", "up", "forward", "hasChanged", "hierarchyCapacity" };
         String[] acceptedParamTypes = { "System.String", "System.Char", "System.Boolean", "System.Int32", "System.Int64", "System.Int16", "System.UInt16", "System.Byte", "System.SByte", "System.Double", "System.Single", "UnityEngine.Vector2", "UnityEngine.Vector3", "UnityEngine.Quaternion", "UnityEngine.Color" };
@@ -318,6 +320,7 @@ namespace OSCQuery
                 foreach (GameObject go in rootObjects)
                 {
                     if (!checkFilteredObject(go)) continue;
+                    if(excludeThisObject && go == this.gameObject) continue;
                     string goName = SanitizeName(go.name);
                     if (!co.HasField(goName)) co.SetField(goName, getObjectData(go, "/" + goName));
                 }
@@ -341,6 +344,8 @@ namespace OSCQuery
             {
                 int dotIndex = comp.GetType().ToString().LastIndexOf(".");
                 string compType = comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
+
+                if (comp == this) continue;
 
                 //Debug.Log(go.name+" > Comp : " + compType);
                 if (!checkFilteredComp(compType)) continue;
