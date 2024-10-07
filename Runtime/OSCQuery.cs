@@ -277,7 +277,7 @@ namespace OSCQuery
             {
                 String command = o["COMMAND"].str;
                 String data = o["DATA"].str;
-                Debug.Log("Received Command " + command + " > " + data);
+                //Debug.Log("Received Command " + command + " > " + data);
 
                 while (propQueryMapLock)
                 {
@@ -301,7 +301,7 @@ namespace OSCQuery
 
         private void wsDataReceived(WSQuery query, byte[] data)
         {
-            Debug.Log("Data received " + data.Length + " bytes");
+            //Debug.Log("Data received " + data.Length + " bytes");
         }
 
         void rebuildDataTree()
@@ -455,7 +455,7 @@ namespace OSCQuery
                     foreach (MethodInfo info in methods)
                     {
                         if (info.IsSpecialName && (info.Name.StartsWith("set_") || info.Name.StartsWith("get_"))) continue; //do not care for accessors
-                        Debug.Log(go.name + " method : " + info);
+                        //Debug.Log(go.name + " method : " + info);
 
                         ParameterInfo[] paramInfos = info.GetParameters();
                         bool requiresArguments = false;
