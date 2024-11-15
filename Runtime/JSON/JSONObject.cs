@@ -36,7 +36,7 @@ THE SOFTWARE.
 namespace OSCQuery
 {
 
-	public class JSONObject
+	internal class JSONObject
 	{
 #if POOLING
 	const int MAX_POOL_SIZE = 10000;

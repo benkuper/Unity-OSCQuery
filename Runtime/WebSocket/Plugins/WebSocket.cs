@@ -18,27 +18,27 @@ namespace HybridWebSocket
     /// <summary>
     /// Handler for WebSocket Open event.
     /// </summary>
-    public delegate void WebSocketOpenEventHandler();
+    internal delegate void WebSocketOpenEventHandler();
 
     /// <summary>
     /// Handler for message received from WebSocket.
     /// </summary>
-    public delegate void WebSocketMessageEventHandler(byte[] data);
+    internal delegate void WebSocketMessageEventHandler(byte[] data);
 
     /// <summary>
     /// Handler for an error event received from WebSocket.
     /// </summary>
-    public delegate void WebSocketErrorEventHandler(string errorMsg);
+    internal delegate void WebSocketErrorEventHandler(string errorMsg);
 
     /// <summary>
     /// Handler for WebSocket Close event.
     /// </summary>
-    public delegate void WebSocketCloseEventHandler(WebSocketCloseCode closeCode);
+    internal delegate void WebSocketCloseEventHandler(WebSocketCloseCode closeCode);
 
     /// <summary>
     /// Enum representing WebSocket connection state
     /// </summary>
-    public enum WebSocketState
+    internal enum WebSocketState
     {
         Connecting,
         Open,
@@ -49,7 +49,7 @@ namespace HybridWebSocket
     /// <summary>
     /// Web socket close codes.
     /// </summary>
-    public enum WebSocketCloseCode
+    internal enum WebSocketCloseCode
     {
         /* Do NOT use NotSet - it's only purpose is to indicate that the close code cannot be parsed. */
         NotSet = 0,
@@ -71,7 +71,7 @@ namespace HybridWebSocket
     /// <summary>
     /// WebSocket class interface shared by both native and JSLIB implementation.
     /// </summary>
-    public interface IWebSocket
+    internal interface IWebSocket
     {
         /// <summary>
         /// Open WebSocket connection
@@ -121,7 +121,7 @@ namespace HybridWebSocket
     /// <summary>
     /// Various helpers to work mainly with enums and exceptions.
     /// </summary>
-    public static class WebSocketHelpers
+    internal static class WebSocketHelpers
     {
 
         /// <summary>
@@ -429,7 +429,7 @@ namespace HybridWebSocket
 
     }
 #else
-    public class WebSocket : IWebSocket
+    internal class WebSocket : IWebSocket
     {
 
         /// <summary>
@@ -736,7 +736,7 @@ namespace HybridWebSocket
         /// </summary>
         /// <returns>The WebSocket instance.</returns>
         /// <param name="url">WebSocket valid URL.</param>
-        public static WebSocket CreateInstance(string url)
+        internal static WebSocket CreateInstance(string url)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
         if (!isInitialized)

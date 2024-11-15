@@ -126,6 +126,8 @@ namespace OSCQuery
         {
             if (propQueryMap == null) propQueryMap = new Dictionary<WSQuery, List<string>>();
             if (propQueryPreviousValues == null) propQueryPreviousValues = new Dictionary<string, object>();
+            if(filteredComponentNames == null) filteredComponentNames = new List<string>();
+            if(filteredObjects == null) filteredObjects = new List<GameObject>();
 
             if (filteredComponentNames.Count == 0)
             {
