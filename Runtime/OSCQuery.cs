@@ -93,10 +93,14 @@ namespace OSCQuery
         public FilterMode componentFilterMode = FilterMode.Exclude;
         public List<String> filteredComponentNames;
         public bool excludeInternalUnityParams;
+        public bool excludeGlobalTransformParams;
+        public bool excludeLocalTransformParams;
         public bool excludeThisObject = true;
 
         String[] internalUnityParamsNames = { "name", "tag", "useGUILayout", "runInEditMode", "enabled", "hideFlags" };
-        String[] internalUnityTransformNames = { "localEulerAngles", "right", "up", "forward", "hasChanged", "hierarchyCapacity" };
+        String[] internalUnityTransformNames = { "localEulerAngles", "eulerAngles", "right", "up", "forward", "hasChanged", "hierarchyCapacity" };
+        String[] localTransformNames = { "localPosition", "localRotation", "localScale" };
+        String[] globalTransformNames = { "position", "rotation", "eulerAngles" };
         String[] acceptedParamTypes = { "System.String", "System.Char", "System.Boolean", "System.Int32", "System.Int64", "System.Int16", "System.UInt16", "System.Byte", "System.SByte", "System.Double", "System.Single", "UnityEngine.Vector2", "UnityEngine.Vector3", "UnityEngine.Quaternion", "UnityEngine.Color" };
 
         HttpServer httpServer;
@@ -126,8 +130,8 @@ namespace OSCQuery
         {
             if (propQueryMap == null) propQueryMap = new Dictionary<WSQuery, List<string>>();
             if (propQueryPreviousValues == null) propQueryPreviousValues = new Dictionary<string, object>();
-            if(filteredComponentNames == null) filteredComponentNames = new List<string>();
-            if(filteredObjects == null) filteredObjects = new List<GameObject>();
+            if (filteredComponentNames == null) filteredComponentNames = new List<string>();
+            if (filteredObjects == null) filteredObjects = new List<GameObject>();
 
             if (filteredComponentNames.Count == 0)
             {
@@ -322,7 +326,7 @@ namespace OSCQuery
                 foreach (GameObject go in rootObjects)
                 {
                     if (!checkFilteredObject(go)) continue;
-                    if(excludeThisObject && go == this.gameObject) continue;
+                    if (excludeThisObject && go == this.gameObject) continue;
                     string goName = SanitizeName(go.name);
                     if (!co.HasField(goName)) co.SetField(goName, getObjectData(go, "/" + goName));
                 }
@@ -338,7 +342,7 @@ namespace OSCQuery
             JSONObject co = new JSONObject();
 
             bool doNotExposeChildren = false;
-           
+
 
             Component[] comps = go.GetComponents<Component>();
 
@@ -369,7 +373,7 @@ namespace OSCQuery
 
                 foreach (FieldInfo info in fields)
                 {
-                    if(info.GetCustomAttribute<DoNotExpose>() != null) continue;
+                    if (info.GetCustomAttribute<DoNotExpose>() != null) continue;
 
                     RangeAttribute rangeAttribute = info.GetCustomAttribute<RangeAttribute>();
 
@@ -394,19 +398,21 @@ namespace OSCQuery
                 {
                     if (!info.CanWrite) continue;
 
-                    if(info.GetCustomAttribute<DoNotExpose>() != null) continue;
+                    if (info.GetCustomAttribute<DoNotExpose>() != null) continue;
 
                     string propType = info.PropertyType.ToString();
                     if (!acceptedParamTypes.Contains(propType)) continue;//
-                    //if (propType == "UnityEngine.Component") continue; //fix deprecation error
-                    //if (propType == "UnityEngine.GameObject") continue; //fix deprecation error
-                    //if (propType == "UnityEngine.Matrix4x4") continue; //fix deprecation error
-                    //if (propType == "UnityEngine.Transform") continue; //fix deprecation error
-                    //if (propType == "UnityEngine.Mesh") continue; //fix deprecation error
-                    if (excludeInternalUnityParams)
+                                                                         //if (propType == "UnityEngine.Component") continue; //fix deprecation error
+                                                                         //if (propType == "UnityEngine.GameObject") continue; //fix deprecation error
+                                                                         //if (propType == "UnityEngine.Matrix4x4") continue; //fix deprecation error
+                                                                         //if (propType == "UnityEngine.Transform") continue; //fix deprecation error
+                                                                         //if (propType == "UnityEngine.Mesh") continue; //fix deprecation error
+                    if (excludeInternalUnityParams && internalUnityParamsNames.Contains(info.Name)) continue;
+                    if (compType == "Transform")
                     {
-                        if (internalUnityParamsNames.Contains(info.Name)) continue;
-                        if (compType == "Transform" && internalUnityTransformNames.Contains(info.Name)) continue;
+                        if (excludeInternalUnityParams && internalUnityTransformNames.Contains(info.Name)) continue;
+                        if (excludeGlobalTransformParams && globalTransformNames.Contains(info.Name)) continue;
+                        if (excludeLocalTransformParams && localTransformNames.Contains(info.Name)) continue;
                     }
 
 
@@ -457,7 +463,7 @@ namespace OSCQuery
                     foreach (MethodInfo info in methods)
                     {
                         if (info.IsSpecialName && (info.Name.StartsWith("set_") || info.Name.StartsWith("get_"))) continue; //do not care for accessors
-                        //Debug.Log(go.name + " method : " + info);
+                                                                                                                            //Debug.Log(go.name + " method : " + info);
 
                         ParameterInfo[] paramInfos = info.GetParameters();
                         bool requiresArguments = false;
@@ -889,11 +895,11 @@ namespace OSCQuery
                 case "Vector4":
                     {
                         Color color = dataType == "Color" ? (Color)data : (Color)(Vector4)data;
-                        
+
                         if (oldData != null)
                         {
                             Color oldColor = dataType == "Color" ? (Color)oldData : (Color)(Vector4)oldData;
-                            if(color == oldColor) return;
+                            if (color == oldColor) return;
                         }
                         m.Append(color.r);
                         m.Append(color.g);
