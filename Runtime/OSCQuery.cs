@@ -560,7 +560,7 @@ namespace OSCQuery
                 case "System.SByte":
                     {
                         //add range
-                        vo.Add((int)value);
+                        vo.Add(Convert.ToInt32(value));
                         poType = "i";
                     }
                     break;
