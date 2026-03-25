@@ -348,6 +348,12 @@ namespace OSCQuery
 
             foreach (Component comp in comps)
             {
+                if(comp == null)
+                {
+                    Debug.LogWarning("Null component found in " + go.name + ", skipping");
+                    continue;
+                }
+            
                 int dotIndex = comp.GetType().ToString().LastIndexOf(".");
                 string compType = comp.GetType().ToString().Substring(Mathf.Max(dotIndex + 1, 0));
 
